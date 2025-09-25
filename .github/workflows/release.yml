@@ -38,30 +38,16 @@ jobs:
     - name: Run create_release.py
       run: python src/create_release.py
         
-    - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
+    - name: Create GitHub Release with Asset
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.event.inputs.version }}
-        release_name: ${{ github.event.inputs.release_name }} ${{ github.event.inputs.version }}
-        draft: false
-        prerelease: false
-        body: |
-          Release ${{ github.event.inputs.version }}
-          
-          This release was created automatically by running create_release.py
-          
-          ## Changes
-          - Release created with updated proofs of concept file
-          
-    - name: Upload proofs_of_concept.txt as Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./src/proofs_of_concept.txt
-        asset_name: proofs_of_concept.txt
-        asset_content_type: text/plain
+      run: |
+        gh release create "${{ github.event.inputs.version }}" \
+          --title "${{ github.event.inputs.release_name }} ${{ github.event.inputs.version }}" \
+          --notes "Release ${{ github.event.inputs.version }}
+
+        This release was created automatically by running create_release.py
+
+        ## Changes
+        - Release created with updated proofs of concept file" \
+          ./src/proofs_of_concept.txt
