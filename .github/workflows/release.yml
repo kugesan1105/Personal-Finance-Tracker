@@ -37,16 +37,9 @@ jobs:
         
     - name: Run create_release.py
       run: python src/create_release.py
-      
-    - name: Commit changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add src/proofs_of_concept.txt
-        git diff --staged --quiet || git commit -m "Update release info in proofs_of_concept.txt"
-        git push
         
     - name: Create GitHub Release
+      id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -61,4 +54,14 @@ jobs:
           This release was created automatically by running create_release.py
           
           ## Changes
-          - Release created at: $(date)
+          - Release created with updated proofs of concept file
+          
+    - name: Upload proofs_of_concept.txt as Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./src/proofs_of_concept.txt
+        asset_name: proofs_of_concept.txt
+        asset_content_type: text/plain
