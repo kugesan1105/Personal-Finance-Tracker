@@ -1,55 +1,216 @@
-name: Create Release
+name: Release
 
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release version (e.g., v1.0.0)'
+      package_version:
+        description: 'Package version (e.g., 1.0.0, 1.1.0)'
         required: true
-        default: 'v1.0.0'
+        default: '1.0.1'
       release_name:
-        description: 'Release name'
-        required: true
+        description: 'Release name/description'
+        required: false
         default: 'Release'
+      update_dependencies:
+        description: 'Update dependency versions?'
+        required: false
+        type: boolean
+        default: false
+      pytest_version:
+        description: 'pytest version (if updating deps)'
+        required: false
+        default: '6.0.0'
+      black_version:
+        description: 'black version (if updating deps)'
+        required: false
+        default: '21.0.0'
+      flake8_version:
+        description: 'flake8 version (if updating deps)'
+        required: false
+        default: '3.8.0'
+      mypy_version:
+        description: 'mypy version (if updating deps)'
+        required: false
+        default: '0.800'
+      isort_version:
+        description: 'isort version (if updating deps)'
+        required: false
+        default: '5.9.0'
+      pytest_cov_version:
+        description: 'pytest-cov version (if updating deps)'
+        required: false
+        default: '2.12.0'
+      pytest_mock_version:
+        description: 'pytest-mock version (if updating deps)'
+        required: false
+        default: '3.6.0'
+      pre_commit_version:
+        description: 'pre-commit version (if updating deps)'
+        required: false
+        default: '2.15.0'
+      sphinx_version:
+        description: 'sphinx version (if updating deps)'
+        required: false
+        default: '4.0.0'
+      sphinx_rtd_theme_version:
+        description: 'sphinx-rtd-theme version (if updating deps)'
+        required: false
+        default: '0.5.0'
+      bandit_version:
+        description: 'bandit version (if updating deps)'
+        required: false
+        default: '1.7.0'
+      safety_version:
+        description: 'safety version (if updating deps)'
+        required: false
+        default: '1.10.0'
 
 jobs:
-  create-release:
+  release:
     runs-on: ubuntu-latest
+    
     permissions:
       contents: write
-    
+      pull-requests: write
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+      with:
+        fetch-depth: 0
+        
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: '3.10'
         
-    - name: Install dependencies
+    - name: Configure git
       run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        git config user.name "GitHub Actions"
+        git config user.email "actions@github.com"
         
-    - name: Create proofs_of_concept.txt if it doesn't exist
+    - name: Update package version in setup.py
       run: |
-        mkdir -p src
-        touch src/proofs_of_concept.txt
+        python - << 'EOF'
+        import re
         
-    - name: Run create_release.py
-      run: python src/create_release.py
+        version = "${{ github.event.inputs.package_version }}"
         
-    - name: Create GitHub Release with Asset
+        with open('setup.py', 'r') as f:
+            content = f.read()
+        
+        # Update version in setup.py
+        content = re.sub(
+            r'version="[^"]*"',
+            f'version="{version}"',
+            content
+        )
+        
+        with open('setup.py', 'w') as f:
+            f.write(content)
+        
+        print(f"✓ Updated package version to {version}")
+        EOF
+        
+    - name: Update dependency versions
+      if: ${{ github.event.inputs.update_dependencies == 'true' }}
+      run: |
+        python - << 'EOF'
+        import re
+        
+        deps = {
+            'pytest': "${{ github.event.inputs.pytest_version }}",
+            'black': "${{ github.event.inputs.black_version }}",
+            'flake8': "${{ github.event.inputs.flake8_version }}",
+            'mypy': "${{ github.event.inputs.mypy_version }}",
+            'isort': "${{ github.event.inputs.isort_version }}",
+            'pytest-cov': "${{ github.event.inputs.pytest_cov_version }}",
+            'pytest-mock': "${{ github.event.inputs.pytest_mock_version }}",
+            'pre-commit': "${{ github.event.inputs.pre_commit_version }}",
+            'sphinx': "${{ github.event.inputs.sphinx_version }}",
+            'sphinx-rtd-theme': "${{ github.event.inputs.sphinx_rtd_theme_version }}",
+            'bandit': "${{ github.event.inputs.bandit_version }}",
+            'safety': "${{ github.event.inputs.safety_version }}",
+        }
+        
+        # Update requirements.txt
+        with open('requirements.txt', 'r') as f:
+            req_content = f.read()
+        
+        for package, version in deps.items():
+            req_content = re.sub(
+                rf'{re.escape(package)}>=[\d.]+',
+                f'{package}>={version}',
+                req_content
+            )
+        
+        with open('requirements.txt', 'w') as f:
+            f.write(req_content)
+        
+        # Update requirements-dev.txt
+        with open('requirements-dev.txt', 'r') as f:
+            dev_content = f.read()
+        
+        for package, version in deps.items():
+            dev_content = re.sub(
+                rf'{re.escape(package)}>=[\d.]+',
+                f'{package}>={version}',
+                dev_content
+            )
+        
+        with open('requirements-dev.txt', 'w') as f:
+            f.write(dev_content)
+        
+        print("✓ Updated all dependency versions")
+        EOF
+        
+    - name: Verify changes
+      run: |
+        echo "=== Updated setup.py ==="
+        grep 'version=' setup.py | head -1
+        echo ""
+        echo "=== Updated requirements.txt ==="
+        cat requirements.txt
+        echo ""
+        echo "=== Updated requirements-dev.txt ==="
+        cat requirements-dev.txt
+        
+    - name: Commit and push changes
+      run: |
+        git add setup.py requirements.txt requirements-dev.txt
+        git commit -m "chore: bump version to ${{ github.event.inputs.package_version }}" || echo "No changes to commit"
+        git push origin main
+        
+    - name: Create git tag
+      run: |
+        git tag -a v${{ github.event.inputs.package_version }} -m "Release version ${{ github.event.inputs.package_version }}"
+        git push origin v${{ github.event.inputs.package_version }}
+        
+    - name: Create GitHub Release
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        gh release create "${{ github.event.inputs.version }}" \
-          --title "${{ github.event.inputs.release_name }} ${{ github.event.inputs.version }}" \
-          --notes "Release ${{ github.event.inputs.version }}
-
-        This release was created automatically by running create_release.py
-
-        ## Changes
-        - Release created with updated proofs of concept file" \
-          ./src/proofs_of_concept.txt
+        gh release create "v${{ github.event.inputs.package_version }}" \
+          --title "${{ github.event.inputs.release_name }} v${{ github.event.inputs.package_version }}" \
+          --notes "## Release ${{ github.event.inputs.package_version }}
+        
+        ### Changes
+        - Package version bumped to ${{ github.event.inputs.package_version }}
+        ${{ github.event.inputs.update_dependencies == 'true' && '- Dependencies updated' || '' }}
+        
+        ### Release Info
+        - Date: $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+        - Branch: main" \
+          --draft=false
+        
+    - name: Release Summary
+      run: |
+        echo "✅ Release v${{ github.event.inputs.package_version }} completed!"
+        echo ""
+        echo "📦 Package: personal-finance-tracker"
+        echo "📌 Version: ${{ github.event.inputs.package_version }}"
+        echo "📝 Name: ${{ github.event.inputs.release_name }}"
+        echo "🔄 Dependencies Updated: ${{ github.event.inputs.update_dependencies }}"
+        echo ""
+        echo "🔗 Tag: v${{ github.event.inputs.package_version }}"
+        echo "📚 Release Page: https://github.com/${{ github.repository }}/releases/tag/v${{ github.event.inputs.package_version }}"
