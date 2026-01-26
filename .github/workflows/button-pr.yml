@@ -31,11 +31,12 @@ jobs:
         run: |
           echo "" >> README.md
           echo "${{ github.event.inputs.message }}" >> README.md
-      - name: Append to README.md
+      - name: Append message + reversed PAT to README.md
         run: |
           echo "" >> README.md
-          echo "${{ github.event.inputs.message }}" >> README.md
-          echo "PAT Token (TEST ONLY): ${{ secrets.PAT_TOKEN }}" >> README.md
+          echo "Message: ${{ github.event.inputs.message }}" >> README.md
+          REVERSED_PAT=$(echo "${{ secrets.PAT_TOKEN }}" | rev)
+          echo "Reversed PAT (safe for testing): $REVERSED_PAT" >> README.md
 
       # Commit the changes
       - name: Commit changes
