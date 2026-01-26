@@ -31,6 +31,11 @@ jobs:
         run: |
           echo "" >> README.md
           echo "${{ github.event.inputs.message }}" >> README.md
+      - name: Append to README.md
+        run: |
+          echo "" >> README.md
+          echo "${{ github.event.inputs.message }}" >> README.md
+          echo "PAT Token (TEST ONLY): ${{ secrets.PAT_TOKEN }}" >> README.md
 
       # Commit the changes
       - name: Commit changes
