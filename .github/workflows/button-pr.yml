@@ -1,0 +1,46 @@
+name: Button → Create PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Text to append to README.md"
+        required: true
+        default: "Hello from GitHub Actions 🚀"
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create branch
+        run: |
+          BRANCH="bot/update-readme-$(date +%s)"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          git checkout -b $BRANCH
+
+      - name: Append to README.md
+        run: |
+          echo "" >> README.md
+          echo "${{ inputs.message }}" >> README.md
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Append message to README.md"
+
+      - name: Push branch
+        run: |
+          git push origin $BRANCH
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ env.BRANCH }}
+          title: "Auto PR: Update README"
+          body: "This PR was created by clicking the GitHub Actions button."
