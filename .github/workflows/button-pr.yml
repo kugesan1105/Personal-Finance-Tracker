@@ -13,20 +13,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the repo using your PAT
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.FG_PAT_TOKEN }}  # <- Your fine-grained PAT
+          persist-credentials: true
 
+      # Create a new branch
       - name: Create branch
         run: |
           BRANCH="bot/update-readme-$(date +%s)"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           git checkout -b $BRANCH
 
+      # Append the message to README.md
       - name: Append to README.md
         run: |
           echo "" >> README.md
           echo "${{ inputs.message }}" >> README.md
 
+      # Commit the changes
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
@@ -34,13 +41,15 @@ jobs:
           git add README.md
           git commit -m "Append message to README.md"
 
+      # Push the branch using PAT
       - name: Push branch
-        run: |
-          git push origin $BRANCH
+        run: git push origin $BRANCH
 
-      - name: Create PR
+      # Create a PR
+      - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           branch: ${{ env.BRANCH }}
           title: "Auto PR: Update README"
           body: "This PR was created by clicking the GitHub Actions button."
+          base: main   # <- change if your default branch is not main
